@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSimulation } from '../../sim/engine'
 import { NODE_BY_ID } from '../../sim/topology'
+import { VANTAGE_BY_ID, observesLink } from '../../sim/vantage'
 import type { Capture, Frame, Packet } from '../../sim/types'
 import NetworkCanvas from './NetworkCanvas'
 import SimControls from './SimControls'
@@ -50,7 +51,12 @@ type Sel =
 export default function NetworkSimulation() {
   const sim = useSimulation()
   const [tab, setTab] = useState<'explore' | 'security'>('explore')
+  const [intercept, setIntercept] = useState(false)
+  const [vantageId, setVantageId] = useState<string | null>(null)
   const [sel, setSel] = useState<Sel>(null)
+
+  const showVantages = tab === 'security' && intercept
+  const vantage = showVantages && vantageId ? VANTAGE_BY_ID[vantageId] : null
 
   const livePacket = sel?.kind === 'packet' ? sim.packets.find(p => p.id === sel.id) ?? null : null
 
@@ -76,6 +82,10 @@ export default function NetworkSimulation() {
       }
     : null
 
+  const interceptInfo = frame && vantage && observesLink(vantage, frame.linkFrom, frame.linkTo)
+    ? { name: vantage.name, short: vantage.short, layer: vantage.layer, color: vantage.color, readsPayload: !frame.encrypted || vantage.seesDecrypted }
+    : undefined
+
   const inspectorTitle = frame ? 'Packet inspector' : sel?.kind === 'node' ? 'Device & capture' : 'Inspector'
 
   return (
@@ -91,7 +101,9 @@ export default function NetworkSimulation() {
           ))}
         </div>
         <div className="flex-1 min-h-0 overflow-hidden px-2.5">
-          {tab === 'explore' ? <SimControls sim={sim} /> : <SecurityPanel sim={sim} />}
+          {tab === 'explore'
+            ? <SimControls sim={sim} />
+            : <SecurityPanel sim={sim} intercept={intercept} setIntercept={setIntercept} vantageId={vantageId} setVantageId={setVantageId} />}
         </div>
         <div className="p-2.5 border-t" style={{ borderColor: '#0f2238' }}>
           <GlobalControls sim={sim} />
@@ -108,6 +120,9 @@ export default function NetworkSimulation() {
           selectedNodeId={selNodeId}
           onSelectPacket={(id) => setSel(id == null ? null : { kind: 'packet', id, hop: null })}
           onSelectNode={(id) => setSel(id == null ? null : { kind: 'node', id })}
+          showVantages={showVantages}
+          selectedVantage={vantageId}
+          onSelectVantage={setVantageId}
         />
       </div>
 
@@ -118,7 +133,7 @@ export default function NetworkSimulation() {
             <div className="text-[10px] font-bold text-[#38bdf8] tracking-widest uppercase">{inspectorTitle}</div>
             {sel && <button onClick={() => setSel(null)} className="text-[#5a7a9a] hover:text-white text-sm leading-none">×</button>}
           </div>
-          <Inspector frame={frame} stepper={stepper} node={nodeInfo} />
+          <Inspector frame={frame} stepper={stepper} node={nodeInfo} intercept={interceptInfo} />
         </div>
         <div className="flex-shrink-0 p-3" style={{ height: 300 }}>
           <ActivityPanel metrics={sim.metrics} history={sim.history} logs={sim.logs} />

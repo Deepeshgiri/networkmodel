@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { NODES, LINKS, ZONES, NODE_BY_ID, VIEW_W, VIEW_H } from '../../sim/topology'
 import { PROTO_COLOR } from '../../sim/protocols'
+import { VANTAGE_POINTS, VANTAGE_BY_ID, observesLink } from '../../sim/vantage'
 import type { NodeState, Packet } from '../../sim/types'
 import DeviceIcon from './DeviceIcon'
 
@@ -12,6 +13,9 @@ interface Props {
   selectedNodeId: string | null
   onSelectPacket: (id: number | null) => void
   onSelectNode: (id: string | null) => void
+  showVantages: boolean
+  selectedVantage: string | null
+  onSelectVantage: (id: string | null) => void
 }
 
 const STATUS_COLOR: Record<string, string> = { warning: '#eab308', compromised: '#ff3366', down: '#ff3366' }
@@ -26,7 +30,8 @@ function packetXY(p: Packet) {
   return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }
 }
 
-export default function NetworkCanvas({ packets, nodeStates, paused, selectedPacketId, selectedNodeId, onSelectPacket, onSelectNode }: Props) {
+export default function NetworkCanvas({ packets, nodeStates, paused, selectedPacketId, selectedNodeId, onSelectPacket, onSelectNode, showVantages, selectedVantage, onSelectVantage }: Props) {
+  const vantage = showVantages && selectedVantage ? VANTAGE_BY_ID[selectedVantage] : null
   const [view, setView] = useState({ x: 0, y: 0, k: 1 })
   const [hover, setHover] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -38,7 +43,7 @@ export default function NetworkCanvas({ packets, nodeStates, paused, selectedPac
   }, [view.k])
 
   const onDown = (e: React.MouseEvent) => {
-    if ((e.target as Element).closest('[data-node]') || (e.target as Element).closest('[data-packet]')) return
+    if ((e.target as Element).closest('[data-node]') || (e.target as Element).closest('[data-packet]') || (e.target as Element).closest('[data-vantage]')) return
     drag.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }
     setDragging(true)
   }
@@ -79,10 +84,19 @@ export default function NetworkCanvas({ packets, nodeStates, paused, selectedPac
           {/* Links */}
           {LINKS.map((l, i) => {
             const a = NODE_BY_ID[l.a], b = NODE_BY_ID[l.b]
+            const observed = vantage ? observesLink(vantage, l.a, l.b) : false
+            const dim = vantage ? !observed : false
             return (
-              <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                stroke="#2a4a6a" strokeWidth={l.medium === 'wan' ? 2.5 : 2} strokeDasharray={MEDIUM_DASH[l.medium]}
-                opacity={0.7} strokeLinecap="round" />
+              <g key={i}>
+                <line x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+                  stroke={observed ? vantage!.color : '#2a4a6a'} strokeWidth={observed ? 4 : l.medium === 'wan' ? 2.5 : 2}
+                  strokeDasharray={observed ? '' : MEDIUM_DASH[l.medium]} opacity={observed ? 0.85 : dim ? 0.18 : 0.7} strokeLinecap="round" />
+                {observed && (
+                  <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={vantage!.color} strokeWidth={2} strokeDasharray="8 8" opacity={0.9} strokeLinecap="round">
+                    <animate attributeName="stroke-dashoffset" values="16;0" dur="0.6s" repeatCount="indefinite" />
+                  </line>
+                )}
+              </g>
             )
           })}
 
@@ -156,6 +170,31 @@ export default function NetworkCanvas({ packets, nodeStates, paused, selectedPac
               </g>
             )
           })}
+
+          {/* Attacker vantage points */}
+          {showVantages && VANTAGE_POINTS.map(vp => {
+            const on = vp.id === selectedVantage
+            const R = on ? 17 : 12
+            return (
+              <g key={vp.id} data-vantage transform={`translate(${vp.x} ${vp.y})`} style={{ cursor: 'pointer' }}
+                onClick={(e) => { e.stopPropagation(); onSelectVantage(on ? null : vp.id) }}>
+                {on && (
+                  <circle r={R + 6} fill="none" stroke={vp.color} strokeWidth={2}>
+                    <animate attributeName="r" values={`${R + 3};${R + 13};${R + 3}`} dur="1.3s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="0.7;0;0.7" dur="1.3s" repeatCount="indefinite" />
+                  </circle>
+                )}
+                <circle r={R} fill="#0b0409ee" stroke={vp.color} strokeWidth={on ? 2.5 : 1.8} opacity={on ? 1 : 0.85} />
+                <g transform={`translate(${-R * 0.6} ${-R * 0.6})`}><DeviceIcon kind="attacker" color={vp.color} size={R * 1.2} /></g>
+                <text y={-R - 5} textAnchor="middle" fontSize={11} fontWeight={700} fill={vp.color}
+                  style={{ paintOrder: 'stroke', stroke: '#02050b', strokeWidth: 3 }}>L{vp.layer}</text>
+                {on && (
+                  <text y={R + 15} textAnchor="middle" fontSize={11} fontWeight={700} fill={vp.color}
+                    style={{ paintOrder: 'stroke', stroke: '#02050b', strokeWidth: 3 }}>{vp.short}</text>
+                )}
+              </g>
+            )
+          })}
         </g>
       </svg>
 
@@ -174,6 +213,12 @@ export default function NetworkCanvas({ packets, nodeStates, paused, selectedPac
         <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5"
           style={{ background: '#eab30820', border: '1px solid #eab30855', color: '#eab308' }}>
           <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#eab308' }} />FROZEN — click any packet to inspect
+        </div>
+      )}
+      {showVantages && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5"
+          style={{ background: (vantage?.color ?? '#38bdf8') + '20', border: `1px solid ${(vantage?.color ?? '#38bdf8')}55`, color: vantage?.color ?? '#38bdf8' }}>
+          👁 {vantage ? <>At <b>{vantage.name}</b> (L{vantage.layer}) — highlighted traffic is what it can see</> : 'Pick an attacker vantage point (on the map or the panel)'}
         </div>
       )}
     </div>

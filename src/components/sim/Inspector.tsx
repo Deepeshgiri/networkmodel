@@ -6,7 +6,9 @@ import type { Capture, DefenseId, Frame, NodeState } from '../../sim/types'
 
 const LAYER_NAME: Record<number, string> = { 2: 'Link', 3: 'Network', 4: 'Transport', 6: 'Presentation', 7: 'Application' }
 
-function FrameView({ frame, stepper }: { frame: Frame; stepper?: { index: number; count: number; onStep: (d: number) => void } }) {
+export interface InterceptInfo { name: string; short: string; layer: number; color: string; readsPayload: boolean }
+
+function FrameView({ frame, stepper, intercept }: { frame: Frame; stepper?: { index: number; count: number; onStep: (d: number) => void }; intercept?: InterceptInfo }) {
   const col = frame.malicious ? '#ff3366' : PROTO_COLOR[frame.proto]
   const at = NODE_BY_ID[frame.linkFrom]
   const next = NODE_BY_ID[frame.linkTo]
@@ -37,6 +39,23 @@ function FrameView({ frame, stepper }: { frame: Frame; stepper?: { index: number
           {frame.status === 'delivered' && <span className="px-1.5 py-0.5 rounded" style={{ background: '#22c55e22', color: '#4ade80' }}>✓ delivered</span>}
         </div>
       </div>
+
+      {/* interception readout */}
+      {intercept && (
+        <div className="rounded-md p-2.5" style={{ background: intercept.color + '14', border: `1px solid ${intercept.color}55` }}>
+          <div className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: intercept.color }}>
+            👁 Intercepted by {intercept.name} <span className="text-[9px] font-mono px-1 rounded" style={{ background: intercept.color + '26' }}>L{intercept.layer}</span>
+          </div>
+          <div className="text-[10px] text-[#a6c4e0] mt-1.5 leading-relaxed">
+            This packet crosses the attacker’s position. It reads <span className="text-[#cfe3f5] font-bold">every header</span> — MAC addresses, IP addresses, ports.
+          </div>
+          <div className="text-[10px] mt-1 leading-relaxed" style={{ color: intercept.readsPayload ? '#f87171' : '#4ade80' }}>
+            {intercept.readsPayload
+              ? <>And the <span className="font-bold">full {frame.proto} payload in plaintext</span> — {frame.encrypted ? 'TLS is terminated here' : 'this traffic is unencrypted'}.</>
+              : <>But the <span className="font-bold">payload stays encrypted</span> — TLS keeps the contents secret from this position.</>}
+          </div>
+        </div>
+      )}
 
       {/* where on the path */}
       <div className="rounded-md px-2.5 py-2" style={{ background: '#0a1626', border: '1px solid #1e3a5a' }}>
@@ -180,8 +199,8 @@ function NodeView({ info }: { info: NodeInfo }) {
   )
 }
 
-export default function Inspector({ frame, stepper, node }: { frame: Frame | null; stepper?: { index: number; count: number; onStep: (d: number) => void }; node?: NodeInfo | null }) {
-  if (frame) return <FrameView frame={frame} stepper={stepper} />
+export default function Inspector({ frame, stepper, node, intercept }: { frame: Frame | null; stepper?: { index: number; count: number; onStep: (d: number) => void }; node?: NodeInfo | null; intercept?: InterceptInfo }) {
+  if (frame) return <FrameView frame={frame} stepper={stepper} intercept={intercept} />
   if (node) return <NodeView info={node} />
   return (
     <div className="h-full flex flex-col items-center justify-center text-center gap-3 px-4">

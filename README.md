@@ -44,6 +44,22 @@ A dedicated **Security** tab turns the same topology into an attack/defense sand
   attack to see exactly what the control was buying you. Turn a defense off and watch the attack
   reach its target: the victim node turns amber/red and a *breach* is logged.
 
+#### 👁 Interception — attacker vantage points
+The Security tab's **Interception** sub-mode places attackers *between* the devices and shows what each
+can access, at which OSI layer, and how. Six vantage points span L1→L7:
+rogue LAN device (ARP/MITM), evil-twin Wi-Fi, compromised switch, on-path at the ISP/backbone,
+malicious DNS resolver, and a compromised server (endpoint).
+
+- Pick a vantage point (on the map or in the panel) and the **traffic it can observe lights up**, while
+  everything it can't see is dimmed — e.g. an ISP-level attacker sees all internet links but none of
+  your LAN.
+- The panel explains, per position: the **OSI layer**, the **technique** ("how"), what it **can access**,
+  what it **cannot read**, and **what stops it**.
+- With a vantage selected, click any packet crossing it: the inspector shows an **"intercepted" readout** —
+  it reads every header (addresses/ports) but the TLS payload stays encrypted… unless the attacker is the
+  endpoint, where TLS terminates and everything is readable in plaintext. This makes concrete *why* the
+  same packet leaks different things to different attackers, and why TLS confines content to the endpoints.
+
 ### 📚 OSI Model
 The seven layers, each expandable with description, protocols and the matching TCP/IP layer, plus a
 worked **encapsulation** example following one HTTPS request down the stack.
@@ -70,6 +86,7 @@ src/
     protocols.ts       per-protocol layered header builder
     scenarios.ts       guided walkthrough definitions
     security.ts        defenses, threats, attack definitions, defense evaluation
+    vantage.ts         attacker vantage points — position, OSI layer, what they can read
     engine.ts          useSimulation hook — packets, captures, drops, metrics, attacks
     types.ts
   components/
