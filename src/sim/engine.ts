@@ -60,9 +60,10 @@ export function useSimulation(): SimApi {
   const pktRef = useRef<Packet[]>([])
   const speedRef = useRef(speed)
   const scenarioRef = useRef(scenario)
+  const deliveredRef = useRef(0)
   const stepTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  speedRef.current = speed
-  scenarioRef.current = scenario
+  useEffect(() => { speedRef.current = speed }, [speed])
+  useEffect(() => { scenarioRef.current = scenario }, [scenario])
 
   const log = useCallback((level: LogLevel, source: string, msg: string) => {
     setLogs(prev => [{ id: lid++, t: Date.now(), level, source, msg }, ...prev].slice(0, 120))
@@ -159,10 +160,9 @@ export function useSimulation(): SimApi {
       // finalize delivered packets
       const delivered = pktRef.current.filter(p => p.status === 'delivered' && p.fade <= 0)
       if (delivered.length) {
-        for (const p of delivered) {
-          setMetrics(m => ({ ...m, delivered: m.delivered + 1 }))
-          if (p.onArrive) p.onArrive(p)
-        }
+        deliveredRef.current += delivered.length
+        setMetrics(m => ({ ...m, delivered: m.delivered + delivered.length }))
+        for (const p of delivered) p.onArrive?.(p)
       }
 
       pktRef.current = pktRef.current.filter(p => !(p.status === 'delivered' && p.fade <= 0))
@@ -186,14 +186,8 @@ export function useSimulation(): SimApi {
       })
     }, 120)
     const sample = setInterval(() => {
-      setHistory(prev => {
-        const inFlight = pktRef.current.filter(p => p.status === 'flying').length
-        setMetrics(m => {
-          setHistory(h => [...h, { t: Date.now(), delivered: m.delivered, inFlight }].slice(-60))
-          return m
-        })
-        return prev
-      })
+      const inFlight = pktRef.current.filter(p => p.status === 'flying').length
+      setHistory(h => [...h, { t: Date.now(), delivered: deliveredRef.current, inFlight }].slice(-60))
     }, 1000)
     return () => { clearInterval(decay); clearInterval(sample) }
   }, [])
@@ -226,6 +220,7 @@ export function useSimulation(): SimApi {
     })
   }, [spawn])
 
+  const advanceRef = useRef<() => void>(() => {})
   const advance = useCallback(() => {
     const cur = scenarioRef.current
     if (!cur) return
@@ -238,8 +233,9 @@ export function useSimulation(): SimApi {
     setScenario({ scn: cur.scn, step: nextIndex })
     runStep(cur.scn, nextIndex)
     const hops = route(cur.scn.steps[nextIndex].src, cur.scn.steps[nextIndex].dst).length
-    stepTimer.current = setTimeout(advance, hops * (SPEED_MS / speedRef.current) + 700)
+    stepTimer.current = setTimeout(() => advanceRef.current(), hops * (SPEED_MS / speedRef.current) + 700)
   }, [log, runStep])
+  useEffect(() => { advanceRef.current = advance }, [advance])
 
   const playScenario = useCallback((id: string) => {
     const scn = SCENARIOS.find(s => s.id === id)
@@ -250,8 +246,8 @@ export function useSimulation(): SimApi {
     log('info', scn.name, 'Scenario started')
     runStep(scn, 0)
     const hops = route(scn.steps[0].src, scn.steps[0].dst).length
-    stepTimer.current = setTimeout(advance, hops * (SPEED_MS / speedRef.current) + 700)
-  }, [advance, log, runStep])
+    stepTimer.current = setTimeout(() => advanceRef.current(), hops * (SPEED_MS / speedRef.current) + 700)
+  }, [log, runStep])
 
   const stopScenario = useCallback(() => {
     if (stepTimer.current) clearTimeout(stepTimer.current)
@@ -274,6 +270,7 @@ export function useSimulation(): SimApi {
   const reset = useCallback(() => {
     if (stepTimer.current) clearTimeout(stepTimer.current)
     pktRef.current = []
+    deliveredRef.current = 0
     setPackets([])
     setNodeStates(emptyNodeStates())
     setLogs([])
