@@ -41,8 +41,10 @@ export const NODES: NetNode[] = [
     explain: 'A public website served from a CDN edge node close to the user.' },
   { id: 'pubdns', kind: 'dns', label: 'Root / TLD DNS', role: 'Authoritative DNS', ip: '198.41.0.4', mac: '—', zone: 'internet', x: 1280, y: 140, layer: 7,
     explain: 'The DNS hierarchy: root servers point to .com TLD servers, which point to the domain authoritative server that holds the actual record.' },
-  { id: 'cloudapi', kind: 'server', label: 'Cloud API', role: 'IoT telemetry endpoint', ip: '52.20.10.5', mac: '—', zone: 'internet', x: 1280, y: 640, layer: 7,
+  { id: 'cloudapi', kind: 'server', label: 'Cloud API', role: 'IoT telemetry endpoint', ip: '52.20.10.5', mac: '—', zone: 'internet', x: 1280, y: 520, layer: 7,
     explain: 'A cloud service that receives sensor telemetry over MQTT/TLS.' },
+  { id: 'attacker', kind: 'attacker', label: 'Attacker', role: 'Hostile host (internet)', ip: '198.51.100.66', mac: '—', zone: 'internet', x: 1280, y: 690, layer: 7,
+    explain: 'A hostile machine on the internet. Its traffic must cross the ISP router, the gateway firewall and IDS before it can reach anything inside — which is exactly where attacks get stopped.' },
 ]
 
 export const LINKS: NetLink[] = [
@@ -61,6 +63,7 @@ export const LINKS: NetLink[] = [
   { a: 'net', b: 'site', medium: 'wan' },
   { a: 'net', b: 'pubdns', medium: 'wan' },
   { a: 'net', b: 'cloudapi', medium: 'wan' },
+  { a: 'net', b: 'attacker', medium: 'wan' },
 ]
 
 export const NODE_BY_ID: Record<string, NetNode> = Object.fromEntries(NODES.map(n => [n.id, n]))

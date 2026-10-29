@@ -1,7 +1,7 @@
 import type { HistoryPoint, LogEntry, Metrics } from '../../sim/types'
 
 const LEVEL_COLOR: Record<string, string> = {
-  info: '#7ea8d0', success: '#4ade80', warn: '#fbbf24',
+  info: '#7ea8d0', success: '#4ade80', warn: '#fbbf24', alert: '#fb923c', block: '#4ade80', breach: '#ff3366',
 }
 
 function Sparkline({ data }: { data: HistoryPoint[] }) {
@@ -19,17 +19,18 @@ function Sparkline({ data }: { data: HistoryPoint[] }) {
 
 export default function ActivityPanel({ metrics, history, logs }: { metrics: Metrics; history: HistoryPoint[]; logs: LogEntry[] }) {
   const stats = [
-    { label: 'Sent', value: metrics.sent, color: '#38bdf8' },
     { label: 'Delivered', value: metrics.delivered, color: '#22c55e' },
-    { label: 'In flight', value: history.at(-1)?.inFlight ?? 0, color: '#a78bfa' },
+    { label: 'Blocked', value: metrics.blocked, color: '#4ade80' },
+    { label: 'Alerts', value: metrics.alerts, color: '#fb923c' },
+    { label: 'Breaches', value: metrics.breaches, color: '#ff3366' },
   ]
   return (
     <div className="flex flex-col gap-2 h-full min-h-0">
-      <div className="grid grid-cols-3 gap-1.5">
+      <div className="grid grid-cols-4 gap-1.5">
         {stats.map(s => (
-          <div key={s.label} className="rounded-md px-2 py-1.5 text-center" style={{ background: '#0a1626', border: '1px solid #1e3a5a' }}>
-            <div className="text-lg font-bold font-mono" style={{ color: s.color }}>{s.value}</div>
-            <div className="text-[9px] text-[#5a7a9a] uppercase tracking-wider">{s.label}</div>
+          <div key={s.label} className="rounded-md px-1 py-1.5 text-center" style={{ background: '#0a1626', border: '1px solid #1e3a5a' }}>
+            <div className="text-base font-bold font-mono" style={{ color: s.color }}>{s.value}</div>
+            <div className="text-[8px] text-[#5a7a9a] uppercase tracking-wider">{s.label}</div>
           </div>
         ))}
       </div>

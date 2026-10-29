@@ -79,23 +79,6 @@ export default function SimControls({ sim }: { sim: SimApi }) {
         </div>
       </div>
 
-      {/* traffic + speed */}
-      <div className="mt-auto flex flex-col gap-2 pt-2 border-t border-[#1e3a5a]">
-        <label className="flex items-center justify-between text-[11px] text-[#a6c4e0]">
-          <span>Background traffic</span>
-          <button onClick={() => sim.setAmbient(!sim.ambient)}
-            className="w-10 h-5 rounded-full relative transition-colors" style={{ background: sim.ambient ? '#22c55e' : '#1e3a5a' }}>
-            <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: sim.ambient ? 22 : 2 }} />
-          </button>
-        </label>
-        <div className="text-[11px] text-[#a6c4e0]">
-          <div className="flex justify-between mb-1"><span>Speed</span><span className="font-mono text-[#38bdf8]">{sim.speed.toFixed(1)}×</span></div>
-          <input type="range" min={0.3} max={3} step={0.1} value={sim.speed} onChange={e => sim.setSpeed(Number(e.target.value))}
-            className="w-full accent-[#38bdf8]" />
-        </div>
-        <button onClick={sim.reset} className="py-1.5 rounded text-[11px] font-bold"
-          style={{ background: '#0a1626', border: '1px solid #1e3a5a', color: '#7ea8d0' }}>↺ Reset simulation</button>
-      </div>
     </div>
   )
 }

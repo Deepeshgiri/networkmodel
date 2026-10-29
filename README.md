@@ -18,11 +18,31 @@ stay fixed end to end.
   - *Ping a server (ICMP)* — echo request/reply with the TTL counting down
   - *Send an email (SMTP)* — client submission → MX lookup → relay
 - **Send one packet** buttons for ad-hoc HTTPS / DNS / ping / SMB flows.
-- **Packet inspector** — click any packet in flight to freeze it and see its full layered
-  encapsulation (Ethernet → IP → TCP/UDP → TLS → application), each field with a hover explanation.
-  Encrypted packets show ciphertext instead of the payload.
-- **Live metrics** — sent / delivered / in-flight counters, a throughput sparkline, and an event log.
+- **Freeze & step** — pause the whole simulation, then step one hop at a time. While frozen you can
+  click *any* packet anywhere on the map and inspect it.
+- **Packet inspector** — click any packet to see its full layered encapsulation
+  (Ethernet → IP → TCP/UDP → TLS → application), each field with a hover explanation, and a
+  **hop stepper** to walk it across the network and watch the MAC addresses rewrite and the TTL
+  count down. Encrypted packets show ciphertext instead of the payload.
+- **Per-node capture tap** — click any device to open its capture buffer (like a mini packet
+  sniffer): every frame that passed through it, newest first. Click a captured frame to inspect its
+  structure *as it looked at that node* (correct per-hop MACs and TTL).
+- **Live metrics** — delivered / blocked / alerts / breaches, a throughput sparkline, and an event log.
 - Pan, zoom, speed control.
+
+### 🛡 Security layer (defensive)
+A dedicated **Security** tab turns the same topology into an attack/defense sandbox:
+
+- **Attack simulations** (shown defensively, with the real mitigation): ARP spoofing / MITM, SYN
+  flood (DDoS), port scan, DNS spoofing, and ransomware lateral movement over SMB. Malicious packets
+  are drawn in red and pulse.
+- **Defenses live on real nodes**: Dynamic ARP Inspection + segmentation on the switch, stateful
+  firewall + IDS + rate limiting on the gateway, DNSSEC on the resolver. When a malicious packet
+  reaches a node whose (enabled) control covers that threat, it is **dropped at that node** with a
+  reason, an alert is logged, and the node glows.
+- **Toggle any defense on/off** — from the Security tab or directly on a device — and re-launch the
+  attack to see exactly what the control was buying you. Turn a defense off and watch the attack
+  reach its target: the victim node turns amber/red and a *breach* is logged.
 
 ### 📚 OSI Model
 The seven layers, each expandable with description, protocols and the matching TCP/IP layer, plus a
@@ -49,10 +69,11 @@ src/
     topology.ts        nodes, links, zones, BFS routing
     protocols.ts       per-protocol layered header builder
     scenarios.ts       guided walkthrough definitions
-    engine.ts          useSimulation hook — spawns/animates packets, logs, metrics
+    security.ts        defenses, threats, attack definitions, defense evaluation
+    engine.ts          useSimulation hook — packets, captures, drops, metrics, attacks
     types.ts
   components/
-    sim/               simulation UI (canvas, inspector, controls, activity)
+    sim/               simulation UI (canvas, inspector, controls, security, activity)
     views/             OSI model + hardware explainers
   data/knowledgeNodes.ts   OSI layer reference content
 ```

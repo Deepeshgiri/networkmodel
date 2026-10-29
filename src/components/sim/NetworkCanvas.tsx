@@ -7,11 +7,14 @@ import DeviceIcon from './DeviceIcon'
 interface Props {
   packets: Packet[]
   nodeStates: Record<string, NodeState>
+  paused: boolean
   selectedPacketId: number | null
   selectedNodeId: string | null
   onSelectPacket: (id: number | null) => void
   onSelectNode: (id: string | null) => void
 }
+
+const STATUS_COLOR: Record<string, string> = { warning: '#eab308', compromised: '#ff3366', down: '#ff3366' }
 
 const MEDIUM_DASH: Record<string, string> = { ethernet: '', fiber: '', wan: '6 5', wifi: '2 4' }
 
@@ -23,7 +26,7 @@ function packetXY(p: Packet) {
   return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }
 }
 
-export default function NetworkCanvas({ packets, nodeStates, selectedPacketId, selectedNodeId, onSelectPacket, onSelectNode }: Props) {
+export default function NetworkCanvas({ packets, nodeStates, paused, selectedPacketId, selectedNodeId, onSelectPacket, onSelectNode }: Props) {
   const [view, setView] = useState({ x: 0, y: 0, k: 1 })
   const [hover, setHover] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -86,21 +89,27 @@ export default function NetworkCanvas({ packets, nodeStates, selectedPacketId, s
           {/* Packets */}
           {packets.map(p => {
             const { x, y } = packetXY(p)
-            const col = PROTO_COLOR[p.proto]
+            const dropped = p.status === 'dropped'
+            const col = dropped ? '#ff3366' : p.malicious ? '#ff5577' : PROTO_COLOR[p.proto]
             const sel = p.id === selectedPacketId
             const r = sel ? 10 : 7
             return (
               <g key={p.id} data-packet transform={`translate(${x} ${y})`} style={{ cursor: 'pointer', opacity: p.fade }}
-                onClick={(e) => { e.stopPropagation(); onSelectPacket(p.id); onSelectNode(null) }}>
-                <circle r={r + 7} fill={col} opacity={0.22} filter="url(#soft)" />
-                {p.encrypted && <circle r={r + 3} fill="none" stroke={col} strokeWidth={1} strokeDasharray="2 2" opacity={0.7} />}
+                onClick={(e) => { e.stopPropagation(); onSelectPacket(p.id) }}>
+                <circle r={r + 7} fill={col} opacity={dropped ? 0.3 : 0.22} filter="url(#soft)" />
+                {p.encrypted && !dropped && <circle r={r + 3} fill="none" stroke={col} strokeWidth={1} strokeDasharray="2 2" opacity={0.7} />}
+                {p.malicious && !dropped && <circle r={r + 4} fill="none" stroke="#ff3366" strokeWidth={1.2} opacity={0.8}>
+                  {!paused && <animate attributeName="r" values={`${r + 2};${r + 6};${r + 2}`} dur="0.7s" repeatCount="indefinite" />}
+                </circle>}
                 <circle r={r} fill={col}>
-                  {!sel && <animate attributeName="r" values={`${r};${r + 1.5};${r}`} dur="0.8s" repeatCount="indefinite" />}
+                  {!sel && !paused && !dropped && <animate attributeName="r" values={`${r};${r + 1.5};${r}`} dur="0.8s" repeatCount="indefinite" />}
                 </circle>
-                {p.encrypted && <text y={3.5} textAnchor="middle" fontSize={8} fill="#02050b" fontWeight={700}>🔒</text>}
+                {dropped
+                  ? <text y={3.5} textAnchor="middle" fontSize={11} fill="#fff" fontWeight={700}>✕</text>
+                  : p.encrypted && <text y={3.5} textAnchor="middle" fontSize={8} fill="#02050b" fontWeight={700}>🔒</text>}
                 {sel && <circle r={r + 4} fill="none" stroke="#fff" strokeWidth={1.5} />}
                 <text y={-r - 6} textAnchor="middle" fontSize={11} fontWeight={700} fill={col} fontFamily="monospace"
-                  style={{ paintOrder: 'stroke', stroke: '#02050b', strokeWidth: 3 }}>{p.label}</text>
+                  style={{ paintOrder: 'stroke', stroke: '#02050b', strokeWidth: 3 }}>{dropped ? p.dropReason : p.label}</text>
               </g>
             )
           })}
@@ -114,18 +123,25 @@ export default function NetworkCanvas({ packets, nodeStates, selectedPacketId, s
             const sel = n.id === selectedNodeId
             const hov = n.id === hover
             const glow = st?.busy ?? 0
+            const statusCol = st && st.status !== 'ok' ? STATUS_COLOR[st.status] : null
+            const ringCol = statusCol ?? col
             const W = 76, H = 60
             return (
               <g key={n.id} data-node transform={`translate(${n.x - W / 2} ${n.y - H / 2})`} style={{ cursor: 'pointer' }}
                 onMouseEnter={() => setHover(n.id)} onMouseLeave={() => setHover(null)}
-                onClick={(e) => { e.stopPropagation(); onSelectNode(n.id); onSelectPacket(null) }}>
-                {(glow > 0.02 || sel) && (
+                onClick={(e) => { e.stopPropagation(); onSelectNode(n.id) }}>
+                {statusCol && (
+                  <rect x={-7} y={-7} width={W + 14} height={H + 14} rx={17} fill="none" stroke={statusCol} strokeWidth={2.5} filter="url(#soft)">
+                    <animate attributeName="opacity" values="0.4;1;0.4" dur="1.1s" repeatCount="indefinite" />
+                  </rect>
+                )}
+                {(glow > 0.02 || sel) && !statusCol && (
                   <rect x={-6} y={-6} width={W + 12} height={H + 12} rx={16}
-                    fill="none" stroke={col} strokeWidth={2} opacity={sel ? 0.9 : glow * 0.8} filter="url(#soft)" />
+                    fill="none" stroke={ringCol} strokeWidth={2} opacity={sel ? 0.9 : glow * 0.8} filter="url(#soft)" />
                 )}
                 <rect width={W} height={H} rx={12}
                   fill={sel ? col + '2a' : hov ? col + '1c' : '#0a1626ee'}
-                  stroke={sel || hov ? col : col + '66'} strokeWidth={sel ? 2 : 1.3} />
+                  stroke={sel || hov ? col : statusCol ? statusCol + 'aa' : col + '66'} strokeWidth={sel ? 2 : 1.3} />
                 <g transform={`translate(${W / 2 - 15} 7)`}><DeviceIcon kind={n.kind} color={col} size={30} /></g>
                 <text x={W / 2} y={50} textAnchor="middle" fontSize={11} fontWeight={700} fill={hov || sel ? '#fff' : '#cfe3f5'}
                   fontFamily="system-ui">{n.label}</text>
@@ -154,6 +170,12 @@ export default function NetworkCanvas({ packets, nodeStates, selectedPacketId, s
       <div className="absolute bottom-3 left-3 text-[10px] font-mono" style={{ color: '#38bdf855' }}>
         {Math.round(view.k * 100)}% · scroll to zoom · drag to pan · click a packet to inspect
       </div>
+      {paused && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5"
+          style={{ background: '#eab30820', border: '1px solid #eab30855', color: '#eab308' }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#eab308' }} />FROZEN — click any packet to inspect
+        </div>
+      )}
     </div>
   )
 }

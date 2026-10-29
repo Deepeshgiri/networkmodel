@@ -32,6 +32,8 @@ export default function DeviceIcon({ kind, color, size = 30 }: Props) {
       return (<svg viewBox="0 0 24 24" {...s}><path d="M7 18h10a4 4 0 0 0 .4-7.98A6 6 0 0 0 6 9.5 3.5 3.5 0 0 0 7 18Z" /></svg>)
     case 'website':
       return (<svg viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="9" /><path d="M3 9h18M3 15h18M12 3c2.5 2.5 2.5 15.5 0 18M12 3c-2.5 2.5-2.5 15.5 0 18" /></svg>)
+    case 'attacker':
+      return (<svg viewBox="0 0 24 24" {...s}><path d="M12 3a6 6 0 0 0-6 6v3l-1.5 2.5h15L18 12V9a6 6 0 0 0-6-6Z" /><circle cx="9.5" cy="10" r="1.2" fill={color} stroke="none" /><circle cx="14.5" cy="10" r="1.2" fill={color} stroke="none" /><path d="M8 17v2M12 17v3M16 17v2" /></svg>)
     default:
       return (<svg viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="8" /></svg>)
   }
